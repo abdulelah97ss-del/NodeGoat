@@ -68,15 +68,12 @@ const index = (app, db) => {
 
     // Handle redirect for learning resources link
     app.get("/learn", isLoggedIn, (req, res) => {
-        const allowedUrls = [
-            "https://owasp.org",
-            "https://owasp.org/www-project-top-ten/"
-        ];
-        const url = req.query.url;
-        if (allowedUrls.includes(url)) {
-            return res.redirect(url);
-        }
-        return res.redirect("/dashboard");
+        const resources = {
+            "owasp": "https://owasp.org",
+            "top10": "https://owasp.org/www-project-top-ten/"
+        };
+        const destination = resources[req.query.resource] || "/dashboard";
+        return res.redirect(destination);
     });
 
     // Research Page

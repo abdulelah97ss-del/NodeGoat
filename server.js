@@ -82,10 +82,10 @@ MongoClient.connect(db, (err, db) => {
         resave: true,
         cookie: {
             httpOnly: true,
-            secure: false,
+            secure: true,
             path: "/",
-            domain: false,
-            maxAge: 3600000
+            domain: "localhost",
+            expires: new Date(Date.now() + 3600000)
         }
     }));
 
