@@ -46,7 +46,6 @@ jobs:
   sast:
     needs: dependency-scan
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     steps:
       - name: Checkout code
