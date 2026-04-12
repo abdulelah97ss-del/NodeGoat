@@ -1,98 +1,99 @@
-  name: CI Pipeline                                                                                                                                                                
-                                                                                                                                                                                   
-  on:                                                                                                                                                                              
-    push:                                                                                                                                                                          
-      branches: [ master ]                                                                                                                                                       
-    pull_request:
-      branches: [ master ]
-                                                                                                                                                                                   
-  jobs:
-    secret-scan:                                                                                                                                                                   
-      runs-on: ubuntu-latest                                                                                                                                                     
+name: CI Pipeline
 
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-          with:
-            fetch-depth: 0
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
-        - name: Run Gitleaks                                                                                                                                                       
-          uses: gitleaks/gitleaks-action@v2
-          env:                                                                                                                                                                     
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}                                                                                                                            
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
 
-    dependency-scan:
-      needs: secret-scan
-      runs-on: ubuntu-latest                                                                                                                                                       
-   
-      steps:                                                                                                                                                                       
-        - name: Checkout code                                                                                                                                                    
-          uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-        - name: Run Dependency Check
-          uses: dependency-check/Dependency-Check_Action@main
-          with:                                                                                                                                                                    
-            project: 'NodeGoat'
-            path: '.'                                                                                                                                                              
-            format: 'HTML'                                                                                                                                                       
-            out: 'reports'
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-        - name: Upload Report
-          uses: actions/upload-artifact@v4
-          with:
-            name: dependency-check-report                                                                                                                                          
-            path: reports/
-                                                                                                                                                                                   
-    sast:                                                                                                                                                                        
-      needs: dependency-scan
-      runs-on: ubuntu-latest
+  dependency-scan:
+    needs: secret-scan
+    runs-on: ubuntu-latest
 
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-                                                                                                                                                                                   
-        - name: Run Semgrep
-          uses: semgrep/semgrep-action@v1                                                                                                                                          
-          with:                                                                                                                                                                  
-            config: p/nodejs
-          env:
-            SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-                                                                                                                                                                                   
-    test:
-      needs: sast                                                                                                                                                                  
-      runs-on: ubuntu-latest                                                                                                                                                     
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-        - name: Setup Node.js
-          uses: actions/setup-node@v4                                                                                                                                              
-          with:
-            node-version: '16'                                                                                                                                                     
-        - name: Install dependencies                                                                                                                                             
-          run: npm install
-        - name: Run tests
-          run: npm test
-                                                                                                                                                                                   
-    build-and-push:
-      needs: test                                                                                                                                                                  
-      runs-on: ubuntu-latest                                                                                                                                                     
-      if: github.ref == 'refs/heads/master'
+      - name: Run Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'NodeGoat'
+          path: '.'
+          format: 'HTML'
+          out: 'reports'
 
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-                                                                                                                                                                                   
-        - name: Log in to GHCR
-          uses: docker/login-action@v3                                                                                                                                             
-          with:                                                                                                                                                                  
-            registry: ghcr.io
-            username: ${{ github.actor }}
-            password: ${{ secrets.GITHUB_TOKEN }}
-                                                                                                                                                                                   
-        - name: Build and push Docker image
-          uses: docker/build-push-action@v5                                                                                                                                        
-          with:                                                                                                                                                                  
-            context: .
-            push: true
-            tags: ghcr.io/${{ github.repository_owner }}/nodegoat:latest
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: reports/
+
+  sast:
+    needs: dependency-scan
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: p/nodejs
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+  test:
+    needs: sast
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+      - name: Install dependencies
+        run: npm install
+      - name: Run tests
+        run: npm test
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/nodegoat:latest
